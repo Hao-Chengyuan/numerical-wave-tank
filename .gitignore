@@ -1,0 +1,16 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated outputs (re-run scripts to regenerate)
+*.gif
+
+# macOS metadata
+.DS_Store
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
