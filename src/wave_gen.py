@@ -1,6 +1,9 @@
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+
+OUTPUT_DIR = Path(__file__).parent.parent / "output"
 
 class RegularWave:
     """
@@ -213,10 +216,9 @@ if __name__ == "__main__":
     
     print("Generating animation. This might take a minute...")
 
-    # Save as a GIF using the 'pillow' writer (built into standard Python installations)
-    gif_filename = "Irregular_Wave_Tank.gif"
-    ani.save(gif_filename, writer='pillow', fps=20)
-    print(f"Animation successfully saved as: {gif_filename}")
+    gif_path = OUTPUT_DIR / "Irregular_Wave_Tank.gif"
+    ani.save(str(gif_path), writer='pillow', fps=20)
+    print(f"Animation successfully saved as: {gif_path}")
 
     # Note: If you want to save it as an .mp4, you need to have FFmpeg installed on your machine.
     # If you do have it, you can uncomment the lines below:

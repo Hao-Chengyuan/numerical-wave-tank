@@ -32,7 +32,7 @@ cd numerical-wave-tank
 uv sync
 
 # 3. Verify everything works
-uv run python fun_test.py
+uv run python src/fun_test.py
 ```
 
 That's it — the `.venv/` folder is created automatically inside the project directory.
@@ -45,15 +45,15 @@ Always prefix commands with `uv run` so they use the project's environment, or a
 
 ```bash
 # Option A — prefix each command (no activation needed)
-uv run python wave_gen_new.py
-uv run python fun_test.py
+uv run python src/wave_gen_new.py
+uv run python src/fun_test.py
 uv run jupyter notebook
 
 # Option B — activate once per terminal session, then run normally
 source .venv/bin/activate          # macOS / Linux
 .venv\Scripts\activate             # Windows
 
-python fun_test.py
+python src/fun_test.py
 jupyter notebook
 ```
 
