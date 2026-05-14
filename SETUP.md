@@ -22,18 +22,35 @@ After installing, restart your terminal so `uv` is on your PATH.
 
 ## Clone and set up
 
+Because the repo is **private**, GitHub needs to verify your identity before it lets you clone. The recommended way is a Personal Access Token (PAT).
+
+### 1. Create a Personal Access Token (once per GitHub account)
+
+1. Go to **github.com → Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. Click **Generate new token (classic)**
+3. Give it a name (e.g. `dev-laptop`), set an expiry, and tick the **`repo`** scope
+4. Click **Generate token** and copy it — you won't see it again
+
+### 2. Clone, set up, and verify
+
 ```bash
-# 1. Clone the repository
-git clone https://github.com/<your-username>/numerical-wave-tank.git
+# Clone — paste your token when Git asks for a password
+#         (use your GitHub username when asked for a username)
+git clone https://github.com/Hao-Chengyuan/numerical-wave-tank.git
 cd numerical-wave-tank
 
-# 2. Create the virtual environment and install all dependencies
-#    (uv reads pyproject.toml and uv.lock to reproduce the exact environment)
+# Create the virtual environment and install all dependencies
 uv sync
 
-# 3. Verify everything works
+# Verify everything works
 uv run python src/fun_test.py
 ```
+
+> **Tip — save credentials so you aren't asked every time:**
+> ```bash
+> git config --global credential.helper store
+> ```
+> After entering your token once, Git saves it to `~/.git-credentials` and reuses it automatically.
 
 That's it — the `.venv/` folder is created automatically inside the project directory.
 
@@ -69,11 +86,40 @@ Commit both `pyproject.toml` and `uv.lock` after adding packages so all devices 
 
 ---
 
+## Editing files and pushing back to GitHub
+
+The standard edit → commit → push loop:
+
+```bash
+# 1. Always pull first to get the latest changes before you start editing
+git pull
+
+# 2. Edit files as needed, then stage the ones you changed
+git add src/wave_gen_new.py          # stage a specific file
+git add src/                         # or stage everything in src/
+
+# 3. Commit with a short message describing what you changed
+git commit -m "describe what you changed"
+
+# 4. Push to GitHub
+git push
+```
+
+If you edited on two devices without syncing, Git may report a conflict on `git pull`. Resolve it by opening the flagged file, choosing which version to keep, then:
+
+```bash
+git add <conflicted-file>
+git commit -m "resolve merge conflict"
+git push
+```
+
+---
+
 ## Keeping in sync across devices
 
 ```bash
-git pull                     # fetch latest code
-uv sync                      # update the environment to match uv.lock
+git pull                     # fetch latest code from GitHub
+uv sync                      # update the environment if pyproject.toml changed
 ```
 
 ---
