@@ -1,5 +1,5 @@
 """
-fun_test.py — Validation tests and performance benchmarks for wave_gen_new.py.
+fun_test.py — Validation tests and performance benchmarks for wave_tank.py.
 
 Run:
     .venv/bin/python fun_test.py
@@ -7,7 +7,7 @@ Run:
 
 import time
 import numpy as np
-from wave_gen_new import RegularWave, IrregularWave_JONSWAP, solve_dispersion
+from wave_tank import RegularWave, IrregularWave_JONSWAP, solve_dispersion
 
 PASS = "\033[92mPASSED\033[0m"
 FAIL = "\033[91mFAILED\033[0m"
