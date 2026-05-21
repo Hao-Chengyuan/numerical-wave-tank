@@ -86,7 +86,6 @@ def animate_surface(wave, x, t, *, fps: int = 20, save_path=None):
     ax.set_ylabel(r"Elevation $\eta$ [m]")
     ax.axhline(0, color="k", linewidth=0.5, linestyle="--")
     ax.grid(True, alpha=0.4)
-    fig.tight_layout()
 
     title = ax.set_title("")
     (line,) = ax.plot([], [], "steelblue", lw=1.5)
