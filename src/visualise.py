@@ -13,6 +13,8 @@ animate_particles(wave, x_positions, z_levels, *, fps=20, n_cycles=2, exaggerati
     Draws a dashed ellipse at each (x, z) grid point and animates a dot tracking
     the instantaneous particle position. `exaggeration` scales orbital radii for
     visual clarity without altering the wave or depth scales.
+    Orbits are aspect-ratio corrected so horizontal motion always appears visually
+    wider than vertical motion, matching physics regardless of the plot's x/y scale.
 
 snapshot_time(wave, x, t, *, ax=None)
     Spatial snapshot η(x) at a fixed time t. Returns (fig, ax).
@@ -281,12 +283,13 @@ def animate_particles(wave, x_positions, z_levels, *,
         A(z) = a · cosh(k(z+d)) / sinh(kd)   [horizontal]
         B(z) = a · sinh(k(z+d)) / sinh(kd)   [vertical]
 
-    Particle displacement from mean position (x₀, z₀):
-        ξ  = −A(z₀) · sin(kx₀ − ωt + φ)
-        ζ  = +B(z₀) · cos(kx₀ − ωt + φ)
-
-    Orbits are clockwise for a right-propagating wave:
-    under the crest the particle is at the top of its ellipse.
+    The orbits are rendered with an aspect-ratio correction so that horizontal
+    motion appears visually wider than vertical motion regardless of the axes
+    scale (the x-axis typically spans hundreds of metres; the z-axis tens).
+    Concretely, A is multiplied by (px/m in z) / (px/m in x) so that equal
+    physical distances look equal on screen.  Dots track the corrected ellipses,
+    so the motion is internally consistent even though the displayed horizontal
+    displacement is larger than the raw Airy value.
 
     Parameters
     ----------
@@ -308,25 +311,27 @@ def animate_particles(wave, x_positions, z_levels, *,
     from matplotlib.patches import Ellipse as _Ellipse
 
     x_positions = np.asarray(x_positions, dtype=float)
-    z_levels = np.asarray(z_levels, dtype=float)
+    z_levels    = np.asarray(z_levels, dtype=float)
 
-    k, d, a, omega = wave.k, wave.d, wave.a, wave.omega
+    k, d, a = wave.k, wave.d, wave.a
     sinh_kd = np.sinh(k * d)
 
-    # Orbital semi-axes scaled by exaggeration factor
-    A = exaggeration * a * np.cosh(k * (z_levels + d)) / sinh_kd  # (nz,)
-    B = exaggeration * a * np.sinh(k * (z_levels + d)) / sinh_kd  # (nz,)
+    # Physical orbital semi-axes with user exaggeration
+    A_phys = exaggeration * a * np.cosh(k * (z_levels + d)) / sinh_kd  # (nz,)
+    B_phys = exaggeration * a * np.sinh(k * (z_levels + d)) / sinh_kd  # (nz,)
 
     n_frames = max(int(n_cycles * wave.T * fps), 2)
-    t_array = np.linspace(0, n_cycles * wave.T, n_frames, endpoint=False)
+    t_array  = np.linspace(0, n_cycles * wave.T, n_frames, endpoint=False)
 
-    # Axis limits — pad x by the largest horizontal orbital radius
-    x_pad = max(A[0] * 1.5, (x_positions[-1] - x_positions[0]) * 0.05 + 0.5)
-    x_min, x_max = x_positions[0] - x_pad, x_positions[-1] + x_pad
-    z_top = a * 2.5          # space above SWL for surface motion
-    z_bot = -d * 1.08        # small gap below seabed
+    z_top   = a * 2.5
+    z_bot   = -d * 1.08
+    z_range = z_top - z_bot
+    x_span  = float(np.ptp(x_positions)) if len(x_positions) > 1 else 0.0
 
-    x_surf = np.linspace(x_min, x_max, 400)
+    # --- Pass 1: initial layout with A_phys-based padding ---
+    x_pad_0 = max(float(A_phys[0]) * 1.5, x_span * 0.05 + 0.5)
+    x_min   = float(x_positions[0])  - x_pad_0
+    x_max   = float(x_positions[-1]) + x_pad_0
 
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.set_xlim(x_min, x_max)
@@ -334,37 +339,64 @@ def animate_particles(wave, x_positions, z_levels, *,
     ax.set_xlabel("Distance x [m]")
     ax.set_ylabel("Elevation z [m]")
 
-    # Static background
-    ax.axhspan(-d, 0, color="lightcyan", alpha=0.5, zorder=1)   # water body
+    exag_tag = f"  (orbits ×{exaggeration:.0f})" if exaggeration != 1.0 else ""
+    ax.set_title(
+        f"Particle orbits — H = {wave.H} m,  T = {wave.T} s,  d = {wave.d} m{exag_tag}"
+    )
+    fig.tight_layout()
+
+    # Derive pixels-per-data-unit from the finalised axes box.
+    # ax.get_position() is updated by tight_layout without needing canvas.draw().
+    pos     = ax.get_position()
+    fig_w, fig_h = fig.get_size_inches()
+    ax_w_px = pos.width  * fig_w * fig.dpi
+    ax_h_px = pos.height * fig_h * fig.dpi
+    # Scale horizontal semi-axis so 1 m in x occupies the same screen pixels
+    # as 1 m in z — this makes A visually larger than B whenever A > B (always true).
+    horiz_scale = (ax_h_px / z_range) / (ax_w_px / (x_max - x_min))
+
+    A_vis = A_phys * horiz_scale  # (nz,) — aspect-corrected horizontal semi-axis
+    B_vis = B_phys                # (nz,) — vertical semi-axis unchanged
+
+    # --- Pass 2: expand x limits if visual orbits exceed initial padding ---
+    x_pad = max(float(A_vis[0]) * 1.5, x_span * 0.05 + 0.5)
+    if x_pad > x_pad_0 + 0.01:
+        x_min = float(x_positions[0])  - x_pad
+        x_max = float(x_positions[-1]) + x_pad
+        ax.set_xlim(x_min, x_max)
+        fig.tight_layout()
+        pos     = ax.get_position()
+        ax_w_px = pos.width * fig_w * fig.dpi
+        horiz_scale = (ax_h_px / z_range) / (ax_w_px / (x_max - x_min))
+        A_vis = A_phys * horiz_scale
+
+    x_surf = np.linspace(x_min, x_max, 400)
+
+    # --- Static background ---
+    ax.axhspan(-d, 0, color="lightcyan", alpha=0.5, zorder=1)
     ax.fill_between([x_min, x_max], z_bot, -d,
-                    color="saddlebrown", alpha=0.65, zorder=2)    # seabed
+                    color="saddlebrown", alpha=0.65, zorder=2)
     ax.axhline(-d, color="sienna", lw=1.5, zorder=3)
     ax.axhline(0, color="navy", lw=0.7, ls="--", alpha=0.4,
                zorder=3, label="SWL")
+    ax.legend(loc="upper right", fontsize=8)
 
-    # Static dashed orbital ellipses
+    # --- Aspect-corrected orbit ellipses ---
     for xi in x_positions:
         for j, zj in enumerate(z_levels):
             ax.add_patch(_Ellipse(
-                xy=(xi, zj), width=2 * A[j], height=2 * B[j],
+                xy=(float(xi), float(zj)),
+                width=2 * float(A_vis[j]), height=2 * float(B_vis[j]),
                 fill=False, edgecolor="steelblue", lw=1.0,
                 linestyle="--", alpha=0.55, zorder=4,
             ))
 
-    # Animated artists
+    # --- Animated artists ---
     surf_line, = ax.plot([], [], color="royalblue", lw=2.0, zorder=6)
     dots, = ax.plot([], [], "o", color="orangered", ms=7, zorder=7,
                     markeredgecolor="firebrick", markeredgewidth=0.7)
     time_text = ax.text(0.01, 0.97, "", transform=ax.transAxes,
                         va="top", ha="left", fontsize=9)
-
-    exag_tag = f"  (orbits ×{exaggeration:.0f})" if exaggeration != 1.0 else ""
-    ax.set_title(
-        f"Particle orbits — H = {wave.H} m,  T = {wave.T} s,  d = {wave.d} m"
-        f"{exag_tag}"
-    )
-    ax.legend(loc="upper right", fontsize=8)
-    fig.tight_layout()
 
     def _init():
         surf_line.set_data([], [])
@@ -374,23 +406,22 @@ def animate_particles(wave, x_positions, z_levels, *,
 
     def _update(frame_i):
         ti = t_array[frame_i]
+        surf_line.set_data(x_surf, wave.surface_elevation(x_surf, ti))
 
-        # Free surface across x_surf
-        eta = wave.surface_elevation(x_surf, ti)
-        surf_line.set_data(x_surf, eta)
+        # Phase at each mean position x₀
+        theta_0 = wave.k * x_positions - wave.omega * ti + wave.phase  # (nx,)
 
-        # Phase at each x_position: θ = kx₀ − ωt + φ, shape (nx,)
-        theta = wave.k * x_positions - wave.omega * ti + wave.phase
+        # Horizontal displacement uses A_vis (aspect-corrected)
+        xi_disp = -A_vis[np.newaxis, :] * np.sin(theta_0[:, np.newaxis])  # (nx, nz)
+        x_pts   =  x_positions[:, np.newaxis] + xi_disp                    # (nx, nz)
 
-        # Displacement: xi_disp[i,j] = -A[j]*sin(theta[i])
-        #               zeta_disp[i,j] = B[j]*cos(theta[i])
-        xi_disp   = -A[np.newaxis, :] * np.sin(theta[:, np.newaxis])  # (nx, nz)
-        zeta_disp =  B[np.newaxis, :] * np.cos(theta[:, np.newaxis])  # (nx, nz)
+        # Evaluate vertical phase at the *displayed* x, not the mean position.
+        # This ensures surface particles align exactly with the surface wave line
+        # even though x is visually exaggerated by horiz_scale.
+        theta_at_x = wave.k * x_pts - wave.omega * ti + wave.phase  # (nx, nz)
+        zeta_disp  = B_vis[np.newaxis, :] * np.cos(theta_at_x)      # (nx, nz)
 
-        x_pts = (x_positions[:, np.newaxis] + xi_disp).ravel()
-        z_pts = (z_levels[np.newaxis, :] + zeta_disp).ravel()
-
-        dots.set_data(x_pts, z_pts)
+        dots.set_data(x_pts.ravel(), (z_levels[np.newaxis, :] + zeta_disp).ravel())
         time_text.set_text(f"t = {ti:.2f} s")
         return surf_line, dots, time_text
 
