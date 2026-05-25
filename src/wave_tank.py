@@ -16,6 +16,8 @@ Key design choices
 import warnings
 import numpy as np
 
+from spectrum import jonswap
+
 
 # ---------------------------------------------------------------------------
 # Standalone vectorized dispersion solver
@@ -211,7 +213,7 @@ class IrregularWave_JONSWAP:
         # Solve dispersion for ALL components in a single vectorized call
         self.k = solve_dispersion(self.omega, d, self.G)
 
-        S_f = self._jonswap()
+        S_f = jonswap(self.f, Hs, Tp, gamma)
 
         # Local RNG — does not mutate the global numpy random state
         rng = np.random.default_rng(seed)
@@ -223,19 +225,6 @@ class IrregularWave_JONSWAP:
         return (f"IrregularWave_JONSWAP(Hs={self.Hs}m, Tp={self.Tp}s, d={self.d}m, "
                 f"gamma={self.gamma}, N={len(self.f)} components, "
                 f"actual_hs={self.actual_hs:.3f}m)")
-
-    # ------------------------------------------------------------------
-    # Spectrum
-    # ------------------------------------------------------------------
-
-    def _jonswap(self) -> np.ndarray:
-        fp = 1.0 / self.Tp
-        sigma = np.where(self.f <= fp, 0.07, 0.09)
-        S_pm = ((5.0 / 16.0) * self.Hs**2 * fp**4 * self.f**-5
-                * np.exp(-1.25 * (fp / self.f)**4))
-        J = self.gamma ** np.exp(-0.5 * ((self.f - fp) / (sigma * fp))**2)
-        A_gamma = 1.0 - 0.287 * np.log(self.gamma)
-        return A_gamma * S_pm * J
 
     @property
     def actual_hs(self) -> float:

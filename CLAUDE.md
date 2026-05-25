@@ -8,7 +8,7 @@ Python 3.12 virtualenv at `.venv/`. Always use `.venv/bin/python` (or `uv run py
 
 ```bash
 .venv/bin/python src/fun_test.py       # run all validation tests and benchmarks
-.venv/bin/jupyter notebook             # open the comparison notebook
+.venv/bin/jupyter notebook             # open notebooks (launch from project root)
 ```
 
 Key packages: `numpy 2.4`, `matplotlib 3.10`, `pillow` (GIF export), `ipykernel` (notebooks). `scipy` is **not** installed.
@@ -17,26 +17,56 @@ Key packages: `numpy 2.4`, `matplotlib 3.10`, `pillow` (GIF export), `ipykernel`
 
 ```
 numerical-wave-tank/
-├── src/                        # all Python source files
-│   ├── wave_gen_new.py         # main module: solve_dispersion, RegularWave, IrregularWave_JONSWAP
-│   ├── fun_test.py             # validation tests and performance benchmarks
-│   └── wave_gen.py             # original reference implementation
-├── output/                     # generated files (GIFs); not tracked by git
-├── .venv/                      # virtual environment (recreated via uv sync)
-├── Wave_Simulation_Comparison.ipynb
+├── src/
+│   ├── wave_tank.py     # solve_dispersion, RegularWave, IrregularWave_JONSWAP
+│   ├── spectrum.py      # pm_spectrum_hs, pm_spectrum_classic, jonswap,
+│   │                    #   periodogram, avg_periodogram, welch_psd
+│   ├── visualise.py     # plot_spectrum, snapshot_time, snapshot_space,
+│   │                    #   animate_surface, animate_particles
+│   ├── fun_test.py      # validation tests and performance benchmarks
+│   └── wave_gen.py      # original reference implementation (do not modify)
+├── Notebooks/
+│   ├── Wave_Tank_Visualise.ipynb          # exercises all visualise.py functions
+│   ├── JONSWAP_Spectral_Verification.ipynb # spectral estimation study
+│   └── Wave_Simulation_Comparison.ipynb   # self-contained Tucker et al. study
+├── output/              # generated GIFs; not tracked by git
+├── .venv/               # virtual environment (recreated via uv sync)
 ├── pyproject.toml
 └── uv.lock
 ```
 
+## Notebook path convention
+
+Notebooks live in `Notebooks/`. Jupyter sets the kernel CWD to the notebook directory, so imports must use relative paths:
+
+```python
+import sys
+sys.path.insert(0, '../src')   # correct — resolves to project src/
+
+from wave_tank import RegularWave, IrregularWave_JONSWAP
+from spectrum import jonswap, periodogram, welch_psd
+```
+
+Output files (GIFs) are written to `../output/` for the same reason.
+
 ## Architecture
 
-Both wave modules share the same two-layer design:
+**`wave_tank.py`** — wave generation and kinematics
 
-**Layer 1 — `RegularWave`**: a single deterministic Airy (linear, first-order) wave defined by height `H`, period `T`, depth `d`, and optional phase. Initialisation solves the dispersion relation `ω² = gk·tanh(kd)` via Newton-Raphson. In `src/wave_gen_new.py` this is delegated to the standalone `solve_dispersion(omega, d)` which accepts scalar or array inputs.
+- `solve_dispersion(omega, d)` — vectorized Newton-Raphson dispersion solver
+- `RegularWave` — first-order Airy wave with kinematics, energy, and dynamic pressure
+- `IrregularWave_JONSWAP` — JONSWAP sea state built from many `RegularWave` components; delegates spectrum construction to `spectrum.jonswap()`
 
-**Layer 2 — `IrregularWave_JONSWAP`**: a random sea state built by superimposing many `RegularWave` components whose amplitudes are Rayleigh-distributed (Tucker et al., 1984) and whose frequencies span `[f_min_factor·fp, f_max_factor·fp]` in steps of `1/T_repeat`. The JONSWAP spectrum (`_jonswap()`) applies the Goda normalization constant `A_γ = 1 − 0.287·ln(γ)` to preserve the target `Hs`.
+**`spectrum.py`** — spectral formulations and PSD estimation
 
-**Critical design decision in `src/wave_gen_new.py`**: components are stored as flat numpy arrays (`self.k`, `self.omega`, `self.amplitudes`, `self.phases`) instead of per-component Python objects. `surface_elevation` uses broadcasting + `np.einsum` to evaluate all components simultaneously, avoiding a Python loop.
+- `pm_spectrum_hs(f, Hs, Tp)` — Pierson-Moskowitz spectrum parameterised by Hs/Tp
+- `pm_spectrum_classic(f, Tp)` — PM in original Phillips (1958) alpha/beta form
+- `jonswap(f, Hs, Tp, gamma)` — JONSWAP = PM × peak-enhancement factor with Goda normalisation
+- `periodogram(segment, dt)` — one-sided raw FFT PSD (rectangular window)
+- `avg_periodogram(signal, dt, n_seg)` — averaged periodogram over N equal non-overlapping segments
+- `welch_psd(signal, dt, nperseg, noverlap)` — Welch's method with Hanning window and configurable overlap
+
+**`visualise.py`** — matplotlib helpers for notebooks
 
 ## Key physics conventions
 
@@ -48,8 +78,16 @@ Both wave modules share the same two-layer design:
 
 ## Dispersion solver
 
-`solve_dispersion(omega, d)` in `src/wave_gen_new.py` is the canonical solver. It uses Hunt (1979) for the initial guess and converges in ≤ 50 Newton-Raphson iterations with tolerance `1e-10`. Pass an array of `omega` values to solve all components in one vectorised call (137× faster than solving per-component).
+`solve_dispersion(omega, d)` in `wave_tank.py` is the canonical solver. It uses Hunt (1979) for the initial guess and converges in ≤ 50 Newton-Raphson iterations with tolerance `1e-10`. Pass an array of `omega` values to solve all components in one vectorised call (137× faster than solving per-component).
 
-## The notebook
+## IrregularWave_JONSWAP design
 
-`Wave_Simulation_Comparison.ipynb` is a self-contained study (no imports from `wave_gen*.py`). It documents the Tucker et al. (1984) finding that deterministic amplitudes `Aᵢ = √(2S(fᵢ)Δf)` suppress realistic wave groupiness, while Rayleigh-drawn amplitudes produce a proper Gaussian sea surface. Method 1 (deterministic) always realises exactly the target `Hs`; Method 2 (Rayleigh) scatters around it as real ocean records do.
+Components are stored as flat numpy arrays (`self.k`, `self.omega`, `self.amplitudes`, `self.phases`) instead of per-component Python objects. `surface_elevation` uses broadcasting + `np.einsum` to evaluate all components simultaneously. The JONSWAP spectrum is constructed by calling `spectrum.jonswap()`, applying the Goda normalisation constant `A_γ = 1 − 0.287·ln(γ)` to preserve the target Hs. Amplitudes are Rayleigh-distributed (Tucker et al., 1984).
+
+## Notebooks
+
+| Notebook | Purpose |
+|---|---|
+| `Wave_Tank_Visualise.ipynb` | Exercises `visualise.py`: spectrum plot, spatial/temporal snapshots, surface animation, particle orbit animation |
+| `JONSWAP_Spectral_Verification.ipynb` | Spectral verification study: raw periodogram, fixed-segment averaging, Welch's method vs target JONSWAP |
+| `Wave_Simulation_Comparison.ipynb` | Self-contained Tucker et al. (1984) study of deterministic vs Rayleigh amplitude methods (no imports from `src/`) |

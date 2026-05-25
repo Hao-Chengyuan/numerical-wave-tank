@@ -1,7 +1,7 @@
 [project]
 name = "numerical-wave-tank"
 version = "0.1.0"
-description = "Numerical Wave Tank — linear wave generation and analysis"
+description = "Numerical Wave Tank — linear Airy wave generation, JONSWAP sea states, and spectral analysis"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.4",
@@ -9,5 +9,9 @@ dependencies = [
     "pillow>=12.0",
     "ipykernel>=7.0",
     "jupyter>=1.0",
+]
+
+[dependency-groups]
+dev = [
     "isort>=8.0.1",
 ]
