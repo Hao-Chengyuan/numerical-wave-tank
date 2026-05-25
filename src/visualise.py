@@ -51,6 +51,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+from spectrum import jonswap
+
 
 # ---------------------------------------------------------------------------
 # Animation
@@ -220,7 +222,7 @@ def plot_spectrum(wave, *, ax=None):
     # IrregularWave_JONSWAP — identified by the presence of amplitude arrays
     if hasattr(wave, "amplitudes") and hasattr(wave, "Hs"):
         df = wave.f[1] - wave.f[0]
-        S_target = wave._jonswap()
+        S_target = jonswap(wave.f, wave.Hs, wave.Tp, wave.gamma)
         S_empirical = wave.amplitudes**2 / (2.0 * df)
 
         ax.fill_between(wave.f, S_empirical, alpha=0.25, color="steelblue",
@@ -243,7 +245,7 @@ def plot_spectrum(wave, *, ax=None):
         ax.axvline(f0, color="steelblue", lw=2.5,
                    label=f"f₀ = {f0:.4f} Hz  (T = {wave.T} s)")
         ax.text(0.62, 0.88, f"E = {E:.1f} J/m²\nH = {wave.H} m",
-                transform=ax.transAxes, fontsize=9, color="steelblue",
+                transform=ax.transAxes, color="steelblue",
                 va="top", ha="left")
         ax.set_xlim(0, f0 * 3)
         ax.set_ylim(0, 1)
@@ -378,7 +380,7 @@ def animate_particles(wave, x_positions, z_levels, *,
     ax.axhline(-d, color="sienna", lw=1.5, zorder=3)
     ax.axhline(0, color="navy", lw=0.7, ls="--", alpha=0.4,
                zorder=3, label="SWL")
-    ax.legend(loc="upper right", fontsize=8)
+    ax.legend(loc="upper right")
 
     # --- Aspect-corrected orbit ellipses ---
     for xi in x_positions:
@@ -395,7 +397,7 @@ def animate_particles(wave, x_positions, z_levels, *,
     dots, = ax.plot([], [], "o", color="orangered", ms=7, zorder=7,
                     markeredgecolor="firebrick", markeredgewidth=0.7)
     time_text = ax.text(0.01, 0.97, "", transform=ax.transAxes,
-                        va="top", ha="left", fontsize=9)
+                        va="top", ha="left")
 
     def _init():
         surf_line.set_data([], [])
