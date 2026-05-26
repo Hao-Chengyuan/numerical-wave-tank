@@ -7,6 +7,7 @@ __pycache__/
 *.pyo
 
 # Generated outputs (re-run scripts to regenerate)
+*.pdf
 *.gif
 
 # macOS metadata
