@@ -145,7 +145,7 @@ def welch_psd(signal: np.ndarray, dt: float, nperseg: int, noverlap: int | None 
     Normalisation: S(f) = 2·dt/U · |FFT(w·x_seg)|²  [m²/Hz]
     where U = Σw² is the window power, ensuring the estimate is unbiased.
 
-    Effective degrees of freedom ≈ 1.9 × n_segments for a Hanning window
+    Effective degrees of freedom ≈ 1.33 × n_segments for a Hanning window
     at 50 % overlap (Harris, 1978).
 
     Parameters
