@@ -116,7 +116,7 @@ def benchmark_surface_elevation():
         storm.surface_elevation(x_domain, 0.0)
     t_vec = (time.perf_counter() - t0) / N_rep * 1000
 
-    print(f"\n[8] Performance — surface_elevation(x_array, t_scalar)")
+    print(f"\n[9] Performance — surface_elevation(x_array, t_scalar)")
     print(f"    Python loop  : {t_loop:7.2f} ms / call")
     print(f"    Vectorized   : {t_vec:7.2f} ms / call")
     print(f"    Speedup      : {t_loop / t_vec:.1f}x faster")
@@ -163,6 +163,65 @@ def test_iwf_export_roundtrip():
     return ok
 
 
+def test_iwf_export_validates_inputs():
+    """write_iwf raises TypeError / ValueError on invalid arguments."""
+    import os as _os
+    import tempfile
+    from pathlib import Path
+
+    from export.oceanwave3d import write_iwf
+
+    wave = IrregularWave_JONSWAP(Hs=2.0, Tp=8.0, d=30.0, seed=0)
+    regular = RegularWave(H=2.0, T=8.0, d=30.0)
+
+    print(f"\n[8] OceanWave3D .iwf export input validation")
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".iwf")
+    _os.close(fd)
+    tmp_path = Path(tmp_name)
+    _os.unlink(tmp_path)
+
+    cases = [
+        ("RegularWave rejected", TypeError,
+         lambda: write_iwf(tmp_path, regular, x=0.0,
+                           t=np.arange(10.0) * 0.1)),
+        ("2-D t rejected", ValueError,
+         lambda: write_iwf(tmp_path, wave, x=0.0,
+                           t=np.arange(10.0).reshape(2, 5))),
+        ("t with < 2 samples rejected", ValueError,
+         lambda: write_iwf(tmp_path, wave, x=0.0,
+                           t=np.array([0.0]))),
+        ("non-uniform t rejected", ValueError,
+         lambda: write_iwf(tmp_path, wave, x=0.0,
+                           t=np.array([0.0, 0.1, 0.3, 0.4]))),
+    ]
+    passed = []
+    try:
+        for label, exc_type, call in cases:
+            try:
+                call()
+            except exc_type:
+                passed.append(True)
+                print(f"    {label}: raised {exc_type.__name__}")
+            except Exception as e:
+                passed.append(False)
+                print(f"    {label}: raised wrong exception "
+                      f"{type(e).__name__}")
+            else:
+                passed.append(False)
+                print(f"    {label}: did not raise")
+
+        no_file = not tmp_path.exists()
+        passed.append(no_file)
+        print(f"    no file created on error: {no_file}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    ok = all(passed)
+    print(f"    {PASS if ok else FAIL}")
+    return ok
+
+
 def benchmark_initialisation():
     """Compare vectorized init against per-component scalar dispersion solves."""
     def _old_init(Hs, Tp, d, seed):
@@ -185,7 +244,7 @@ def benchmark_initialisation():
         IrregularWave_JONSWAP(Hs=2.5, Tp=10.0, d=50.0, seed=42)
     t_new = (time.perf_counter() - t0) / N_rep * 1000
 
-    print(f"\n[9] Performance — initialisation")
+    print(f"\n[10] Performance — initialisation")
     print(f"    Per-component init : {t_old:7.2f} ms")
     print(f"    Vectorized init    : {t_new:7.2f} ms")
     print(f"    Speedup            : {t_old / t_new:.1f}x faster")
@@ -206,6 +265,7 @@ def run_all():
         test_dynamic_pressure(),
         test_jonswap_hs_accuracy(),
         test_iwf_export_roundtrip(),
+        test_iwf_export_validates_inputs(),
         benchmark_surface_elevation(),
         benchmark_initialisation(),
     ]
