@@ -124,6 +124,45 @@ def benchmark_surface_elevation():
     return True
 
 
+def test_iwf_export_roundtrip():
+    """write_iwf produces a 3-line header + N samples matching the wave model."""
+    import tempfile
+    from pathlib import Path
+
+    from export.oceanwave3d import write_iwf
+
+    wave = IrregularWave_JONSWAP(Hs=2.0, Tp=8.0, d=30.0, seed=0)
+    dt = 0.1
+    t = np.arange(0.0, 60.0, dt)
+    expected_eta = wave.surface_elevation(0.0, t)
+
+    print(f"\n[7] OceanWave3D .iwf export round-trip")
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".iwf")
+    import os as _os
+    _os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        write_iwf(tmp_path, wave, x=0.0, t=t)
+        lines = tmp_path.read_text().splitlines()
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    header_ok = lines[0].startswith("JONSWAP ")
+    dt_ok = abs(float(lines[1]) - dt) < 1e-9
+    n_ok = (len(lines) - 2) == len(t)
+    first_ok = abs(float(lines[2]) - float(expected_eta[0])) < 5e-7
+
+    ok = header_ok and dt_ok and n_ok and first_ok
+    print(f"    header starts with 'JONSWAP ': {header_ok}")
+    print(f"    dt match: {dt_ok}  (got {float(lines[1])})")
+    print(f"    sample count: {n_ok}  (got {len(lines) - 2}, want {len(t)})")
+    print(f"    first sample match: {first_ok}  (diff "
+          f"{abs(float(lines[2]) - float(expected_eta[0])):.2e})")
+    print(f"    {PASS if ok else FAIL}")
+    return ok
+
+
 def benchmark_initialisation():
     """Compare vectorized init against per-component scalar dispersion solves."""
     def _old_init(Hs, Tp, d, seed):
@@ -166,6 +205,7 @@ def run_all():
         test_surface_horizontal_velocity(),
         test_dynamic_pressure(),
         test_jonswap_hs_accuracy(),
+        test_iwf_export_roundtrip(),
         benchmark_surface_elevation(),
         benchmark_initialisation(),
     ]
