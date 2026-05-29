@@ -14,6 +14,8 @@ avg_periodogram      Averaged periodogram over N equal non-overlapping segments.
 welch_psd            Welch's method (Hanning window, configurable overlap).
 """
 
+import warnings
+
 import numpy as np
 
 
@@ -32,7 +34,9 @@ def pm_spectrum_classic(f: np.ndarray, Tp: float, g: float = 9.81) -> np.ndarray
     """
     One-sided Pierson-Moskowitz variance spectrum S(f) [m²/Hz].
 
-    Uses the original Phillips (1958) constants: alpha=0.0081, beta=1.25.
+    Pierson-Moskowitz (1964) fully-developed sea form.
+    α = 0.0081 (Phillips, 1958 equilibrium-range constant);
+    β = 1.25 (Pierson & Moskowitz, 1964, peak-frequency form).
     """
     alpha = 0.0081
     beta = 1.25
@@ -41,7 +45,7 @@ def pm_spectrum_classic(f: np.ndarray, Tp: float, g: float = 9.81) -> np.ndarray
 
 def jonswap(
     f: np.ndarray,
-    Hs: float,
+    Hs: float | None,
     Tp: float,
     gamma: float = 3.3,
     formula: str = "hs",
@@ -53,23 +57,45 @@ def jonswap(
     Parameters
     ----------
     f       : frequency array [Hz]; values must be > 0.
-    Hs      : significant wave height [m].
+    Hs      : significant wave height [m].  Required for formula='hs'; pass None
+              (or omit) for formula='classic', whose energy is set by α = 0.0081.
     Tp      : peak period [s].
     gamma   : peak-enhancement factor (1 → PM; typical JONSWAP ≈ 3.3).
-    formula : 'hs' (default) uses pm_spectrum_hs; 'classic' uses pm_spectrum_classic.
+    formula : 'hs' (default) uses pm_spectrum_hs as the PM base;
+              'classic' uses pm_spectrum_classic (wind-speed-calibrated α constant).
     g       : gravitational acceleration [m/s²].
 
     Returns
     -------
     S : one-sided variance spectrum [m²/Hz], same shape as f.
     """
+    if not (1.0 <= gamma <= 7.0):
+        warnings.warn(
+            f"jonswap: gamma={gamma} is outside the validated range [1, 7]. "
+            "The Goda normalisation A_γ = 1 − 0.287·ln(γ) becomes negative for γ > 32.5, "
+            "yielding a physically meaningless spectrum.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     f = np.maximum(f, 1e-6)
     fp = 1.0 / Tp
     sigma = np.where(f <= fp, 0.07, 0.09)
 
     if formula == "hs":
+        if Hs is None:
+            raise ValueError("Hs is required when formula='hs'.")
         S_pm = pm_spectrum_hs(f, Hs, Tp)
     elif formula == "classic":
+        if Hs is not None:
+            warnings.warn(
+                f"jonswap: Hs={Hs} is ignored when formula='classic'. "
+                "The energy level is fixed by the PM constant α=0.0081. "
+                "Pass Hs=None to silence this warning, or use formula='hs' "
+                "to target a specific Hs.",
+                UserWarning,
+                stacklevel=2,
+            )
         S_pm = pm_spectrum_classic(f, Tp, g)
     else:
         raise ValueError("formula must be 'hs' or 'classic'.")

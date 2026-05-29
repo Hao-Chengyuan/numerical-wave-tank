@@ -125,6 +125,16 @@ class RegularWave:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _check_z(self, z):
+        z_arr = np.asarray(z, dtype=float)
+        if np.any(z_arr < -self.d) or np.any(z_arr > 0.0):
+            warnings.warn(
+                f"z outside valid range [-d, 0] = [{-self.d:.3g}, 0]; "
+                "Airy kinematics are undefined outside the water column.",
+                UserWarning,
+                stacklevel=3,
+            )
+
     def _theta(self, x, t):
         return self.k * x - self.omega * t + self.phase
 
@@ -147,6 +157,7 @@ class RegularWave:
         z is measured upward from the still-water level; valid for -d <= z <= 0.
         x and t may be scalars or matching numpy arrays.
         """
+        self._check_z(z)
         theta = self._theta(x, t)
         u = self.a * self.omega * self._cosh_ratio(z) * np.cos(theta)
         w = self.a * self.omega * self._sinh_ratio(z) * np.sin(theta)
@@ -156,6 +167,7 @@ class RegularWave:
         """
         Orbital acceleration components (ax, az) [m/s^2].
         """
+        self._check_z(z)
         theta = self._theta(x, t)
         ax =  self.a * self.omega**2 * self._cosh_ratio(z) * np.sin(theta)
         az = -self.a * self.omega**2 * self._sinh_ratio(z) * np.cos(theta)
@@ -166,6 +178,7 @@ class RegularWave:
         Dynamic (wave-induced) pressure p_dyn [Pa].
         p = rho * g * a * cosh(k*(z+d)) / cosh(k*d) * cos(theta)
         """
+        self._check_z(z)
         p_factor = np.cosh(self.k * (z + self.d)) / np.cosh(self.k * self.d)
         return self.RHO * self.G * self.a * p_factor * np.cos(self._theta(x, t))
 
@@ -282,6 +295,13 @@ class IrregularWave_JONSWAP:
         All three arguments must be scalars.
         z is measured upward from the still-water level; valid for -d <= z <= 0.
         """
+        if not (-self.d <= z <= 0.0):
+            warnings.warn(
+                f"z={z} outside valid range [-d, 0] = [{-self.d:.3g}, 0]; "
+                "Airy kinematics are undefined outside the water column.",
+                UserWarning,
+                stacklevel=2,
+            )
         cosh_f = np.cosh(self.k * (z + self.d)) / np.sinh(self.k * self.d)
         sinh_f = np.sinh(self.k * (z + self.d)) / np.sinh(self.k * self.d)
         phase = self.k * x - self.omega * t + self.phases
