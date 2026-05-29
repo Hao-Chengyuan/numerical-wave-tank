@@ -28,8 +28,10 @@ numerical-wave-tank/
 │   │   └── spectrum.py        # pm_spectrum_hs, pm_spectrum_classic, jonswap,
 │   │                          #   periodogram, avg_periodogram, welch_psd
 │   ├── tests/
-│   │   ├── __init__.py
-│   │   └── fun_test.py        # validation tests, .iwf round-trip, benchmarks
+│   │   ├── __init__.py        # PASS / FAIL ANSI constants
+│   │   ├── fun_test.py        # orchestrator — runs every module suite in order
+│   │   ├── test_wave_tank.py  # wave_tank validation tests + benchmarks
+│   │   └── test_oceanwave3d.py # write_iwf round-trip + input validation
 │   └── export/
 │       ├── __init__.py        # re-exports write_iwf
 │       └── oceanwave3d.py     # write_iwf — OceanWave3D .iwf custom incident wave
