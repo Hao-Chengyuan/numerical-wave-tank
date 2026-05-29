@@ -116,7 +116,7 @@ def benchmark_surface_elevation():
         storm.surface_elevation(x_domain, 0.0)
     t_vec = (time.perf_counter() - t0) / N_rep * 1000
 
-    print(f"\n[7] Performance — surface_elevation(x_array, t_scalar)")
+    print(f"\n[8] Performance — surface_elevation(x_array, t_scalar)")
     print(f"    Python loop  : {t_loop:7.2f} ms / call")
     print(f"    Vectorized   : {t_vec:7.2f} ms / call")
     print(f"    Speedup      : {t_loop / t_vec:.1f}x faster")
@@ -185,7 +185,7 @@ def benchmark_initialisation():
         IrregularWave_JONSWAP(Hs=2.5, Tp=10.0, d=50.0, seed=42)
     t_new = (time.perf_counter() - t0) / N_rep * 1000
 
-    print(f"\n[8] Performance — initialisation")
+    print(f"\n[9] Performance — initialisation")
     print(f"    Per-component init : {t_old:7.2f} ms")
     print(f"    Vectorized init    : {t_new:7.2f} ms")
     print(f"    Speedup            : {t_old / t_new:.1f}x faster")
