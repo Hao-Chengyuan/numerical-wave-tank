@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Python 3.12 virtualenv at `.venv/`. Always use `.venv/bin/python` (or `uv run python`) to run scripts.
 
 ```bash
-.venv/bin/python src/fun_test.py       # run all validation tests and benchmarks
+.venv/bin/python src/tests/fun_test.py # run all validation tests and benchmarks
 .venv/bin/jupyter notebook             # open notebooks (launch from project root)
 ```
 
@@ -18,15 +18,23 @@ Key packages: `numpy 2.4`, `matplotlib 3.10`, `pillow` (GIF export), `ipykernel`
 ```
 numerical-wave-tank/
 ├── src/
-│   ├── wave_tank.py     # solve_dispersion, RegularWave, IrregularWave_JONSWAP
-│   ├── spectrum.py      # pm_spectrum_hs, pm_spectrum_classic, jonswap,
-│   │                    #   periodogram, avg_periodogram, welch_psd
-│   ├── visualise.py     # plot_spectrum, snapshot_time, snapshot_space,
-│   │                    #   animate_surface, animate_particles
-│   ├── fun_test.py      # validation tests and performance benchmarks
-│   └── wave_gen.py      # original reference implementation (do not modify)
+│   ├── wave_tank/
+│   │   ├── __init__.py        # re-exports RegularWave, IrregularWave_JONSWAP, solve_dispersion
+│   │   ├── wave_tank.py       # solve_dispersion, RegularWave, IrregularWave_JONSWAP
+│   │   └── visualise.py       # plot_spectrum, snapshot_time, snapshot_space,
+│   │                          #   animate_surface, animate_particles
+│   ├── spectrum/
+│   │   ├── __init__.py        # re-exports pm/jonswap/periodogram/welch helpers
+│   │   └── spectrum.py        # pm_spectrum_hs, pm_spectrum_classic, jonswap,
+│   │                          #   periodogram, avg_periodogram, welch_psd
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   └── fun_test.py        # validation tests, .iwf round-trip, benchmarks
+│   └── export/
+│       ├── __init__.py        # re-exports write_iwf
+│       └── oceanwave3d.py     # write_iwf — OceanWave3D .iwf custom incident wave
 ├── Notebooks/
-│   ├── Wave_Tank_Visualise.ipynb          # exercises all visualise.py functions
+│   ├── Wave_Tank_Visualise.ipynb          # exercises all visualise functions
 │   ├── JONSWAP_Spectral_Verification.ipynb # spectral estimation study
 │   └── Wave_Simulation_Comparison.ipynb   # self-contained Tucker et al. study
 ├── output/              # generated GIFs; not tracked by git
@@ -44,7 +52,9 @@ import sys
 sys.path.insert(0, '../src')   # correct — resolves to project src/
 
 from wave_tank import RegularWave, IrregularWave_JONSWAP
+from wave_tank.visualise import plot_spectrum, animate_surface
 from spectrum import jonswap, periodogram, welch_psd
+from export.oceanwave3d import write_iwf
 ```
 
 Output files (GIFs) are written to `../output/` for the same reason.
@@ -67,6 +77,13 @@ Output files (GIFs) are written to `../output/` for the same reason.
 - `welch_psd(signal, dt, nperseg, noverlap)` — Welch's method with Hanning window and configurable overlap
 
 **`visualise.py`** — matplotlib helpers for notebooks
+
+**`export/oceanwave3d.py`** — exporters for external solvers
+
+- `write_iwf(path, wave, x, t, *, header=None, fmt="%.6f")` — write
+  `IrregularWave_JONSWAP` surface elevation η(t) at probe x to OceanWave3D's
+  `.iwf` custom-incident-wave format (header line, dt, then N samples). Used
+  with `OceanWave3D.inp` line 22 setting `i_spec=2`.
 
 ## Key physics conventions
 
