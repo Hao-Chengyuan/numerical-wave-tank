@@ -2,10 +2,16 @@
 fun_test.py — Validation tests and performance benchmarks for wave_tank.py.
 
 Run:
-    .venv/bin/python fun_test.py
+    .venv/bin/python src/tests/fun_test.py
 """
 
+import pathlib
+import sys
 import time
+
+# Make `src/` importable when this file is run as a script.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+
 import numpy as np
 from wave_tank import RegularWave, IrregularWave_JONSWAP, solve_dispersion
 
