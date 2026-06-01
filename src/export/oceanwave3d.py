@@ -76,7 +76,7 @@ def write_iwf(
         with open(tmp_path, "w") as f:
             f.write(header + "\n")
             f.write(f"{dt:.6f}\n")
-            for value in eta:
+            for value in eta: # type: ignore
                 f.write((fmt + "\n") % value)
         os.replace(tmp_path, path)
     except Exception:
